@@ -776,8 +776,7 @@ public class Node {
 	 * @return
 	 */
 	private String getRandomString() {
-		// TODO change it
-		return  this.nodeId + new Date().toGMTString();
+		return  this.nodeId +NodeUtils.generateRandomString();
 	}
 
 	/**

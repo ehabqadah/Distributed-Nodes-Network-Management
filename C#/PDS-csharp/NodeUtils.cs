@@ -65,5 +65,25 @@ namespace PDS
             return ipList;
 
         }
+        /// <summary>
+        /// Generate random string 
+        /// </summary>
+        /// <returns></returns>
+        public static String generateRandomString()
+        {
+            Random r = new Random();
+            int length = (int)(r.Next(0,5)+ r.Next(0, 3 )+ r.Next(0, 6)) + 2;
+            string buffer = "_" + r.Next(0,100) + "_";
+            string characters = "$$$abcdefghijklmnopqrstuvwxyz@#$%^&&%*ABCDEFGHIJKLMNOPQRS#@%&TUVWXYZ1234567890";
+            int charactersLength = characters.Length;
+            for (int i = 0; i < length; i++)
+            {
+                double index = r.Next(0, charactersLength);
+
+               buffer+= characters[(int)index];
+            }
+
+            return buffer;
+        }
     }
 }

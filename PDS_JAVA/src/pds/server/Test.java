@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 
 import pds.network.Node;
+import pds.network.NodeUtils;
 
 public class Test {
 
@@ -27,6 +28,7 @@ public class Test {
 		Node node = new Node("1");
 		
 		
+		System.out.println(NodeUtils.generateRandomString());
 		
 	}
 

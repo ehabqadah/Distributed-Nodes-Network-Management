@@ -63,4 +63,22 @@ public class NodeUtils {
 		return ipList;
 
 	}
+	
+	
+	/****
+	 * Generate random string 
+	 * @return
+	 */
+	public static String generateRandomString() {
+		int length= (int)(Math.random()*5+ Math.random()*3 +Math.random()*6)+2;
+		StringBuffer buffer = new StringBuffer("_"+(int)(Math.random()*100)+"_");
+		String characters = "$$$abcdefghijklmnopqrstuvwxyz@#$%^&&%*ABCDEFGHIJKLMNOPQRS#@%&TUVWXYZ1234567890";		
+		int charactersLength = characters.length();
+		for (int i = 0; i < length; i++) {
+			double index = Math.random() * charactersLength;
+			buffer.append(characters.charAt((int) index));
+		}
+		
+		return buffer.toString();
+	}
 }

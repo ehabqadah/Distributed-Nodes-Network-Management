@@ -904,8 +904,8 @@ namespace PDS
         /// <returns></returns>
         private String getRandomString()
         {
-            // TODO change it
-            return "  " + nodeId + "ehab";
+            
+            return "  " + nodeId + NodeUtils.generateRandomString();
         }
         /// <summary>
         ///  Send a release message after finishing the access on the resource
