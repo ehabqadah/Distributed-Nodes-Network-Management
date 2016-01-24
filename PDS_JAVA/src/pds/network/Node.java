@@ -8,7 +8,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
-import java.util.concurrent.locks.Lock;
+
+import org.apache.xmlrpc.WebServer;
 
 import pds.xmlrpc.client.XMLRpcClientUtil;
 import pds.xmlrpc.server.XMLRpcServerUtils;
@@ -20,6 +21,12 @@ import pds.xmlrpc.server.XMLRpcServerUtils;
  */
 public class Node {
 
+	
+	
+	/**
+	 * Constants
+	 */
+	private static final String NODE_HANDLER_NAME = "node";
 	private static final String NODE_HANDLE_RELEASE_RESOURCE_METHOD_NAME = "node.handleReleaseResource";
 	private static final String NODE_HANDLE_NEW_COORDINATION_MESSAGE_METHOD_NAME = "node.handleNewCoordinationMessage";
 	private static final String NODE_HANDLE_NEW_ELECTION_MESSAGE_METHOD_NAME = "node.handleNewElectionMessage";
@@ -28,26 +35,25 @@ public class Node {
 	private static final String NODE_HANDLE_FORWARD_NEW_JOIN_REQUEST_METHOD_NAME = "node.handleForwardNewJoinRequest";
 	private static final String NODE_HANDLE_NEW_ACCESS_REQUEST_METHOD_NAME = "node.handleNewAccessRequest";
 	private static final String NODE_HANDLE_ALLOW_ACCESS_RESPONSE_METHOD_NAME = "node.handleAllowAccessResponse";
-	private static final String NOT_OK_MESSAGE = "NOT OK";
-	private static final int RANDOM_WAIT_THREASHOLD_MS = 5000;
-	private static final int READ_WRITE_PERIOD_MS = 20 * 1000;
-	/**
-	 * Constants
-	 */
-
+	private static final String NOT_OK_MESSAGE = "NOT OK";	
 	private static final String ELECTION_OK_MESSAGE = "ok i will take care of election";
-	static final String LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR = ",";
 	private static final String PORT_NUMBER = ":2000/RPC2";
 	private static final String ACCESS_OK_MESSAGE = "OK you can access it";
-
+	static final String LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR = ",";
+	private static final int RANDOM_WAIT_THREASHOLD_MS = 5000;
+	private static final int READ_WRITE_PERIOD_MS = 20 * 1000;
+	private static final String NODE_UPDATE_RESOURCE_METHOD_NAME = "node.updateResource";
+	private static final String NODE_START_METHOD_NAME = "node.start";
 	/**
-	 * Members
+	 * Members and Properties 
 	 */
+	/** The network's nodes IPs and IDs*/
 	public Map<String, String> networkNodesIps = new HashMap<String, String>();
 
 	public Map<String, Boolean> networkNodesIpsAndAccessRequestResponse = new HashMap<String, Boolean>();
 
 	private Object accessResponseslock = new Object();
+	
 	private Object accessRequestQueueeslock = new Object();
 
 	public String ip;
@@ -61,9 +67,11 @@ public class Node {
 	protected boolean electionStarted;
 
 	private int logicalClock;
-
+	
 	public boolean wantToAccessResource;
+	
 	public boolean curentllyAccessingTheResource;
+	
 	private String accessRequestLogicalClock;
 
 	public List<String> accessRequestQueue = new ArrayList<String>();
@@ -92,11 +100,11 @@ public class Node {
 	 * 
 	 * @return
 	 */
-	public boolean setupServerPart() {
+	public boolean setupServerPart(int portNumber) {
 
-		XMLRpcServerUtils.setupXmlRPCServer(2000, "node", this);
+		 WebServer server=XMLRpcServerUtils.setupXmlRPCServer(portNumber, NODE_HANDLER_NAME, this);
 
-		return true;
+		return server!=null;
 	}
 
 	/***
@@ -112,12 +120,42 @@ public class Node {
 		params.addElement(this.getIp());
 		params.addElement(this.nodeId);
 		Object result = sendRequest(url, methodName, params);
-		System.out.print("join result:" + result);
-		// store network ip list
+		System.out.println("Join result:" + result);
+		// store network nodes list
 		this.networkNodesIps = NodeUtils.parseIpList((String) result);
 		return true;
 	}
 
+	/***
+	 * Handle the join request from another node
+	 * 
+	 * @param newNodeIp
+	 * @param newNodeId
+	 * @param logicalClock
+	 * 
+	 */
+	public String handleNewJoinRequest(String newNodeIp, String newNodeId,
+			String senderLogicalClock) {
+		updateLogicalClockOnReceive(senderLogicalClock);
+		System.out.println("Receving a new join request from ip:" + newNodeIp
+				+ "; id =" + newNodeId);
+
+		Map<String, String> oldNodesMap = new HashMap<String, String>(
+				this.networkNodesIps);
+		// add current node  ip and id to the map
+		oldNodesMap.put(this.getIp(), this.nodeId);
+		String oldNodes = oldNodesMap.toString();
+		// forward the new ip for the all other nodes
+		for (String nodeIp : networkNodesIps.keySet()) {
+			forwardJoinRequest(nodeIp, newNodeIp, newNodeId);
+		}
+		// add the new ip
+		if (!this.networkNodesIps.keySet().contains(newNodeIp))
+			this.networkNodesIps.put(newNodeIp, newNodeId);
+		// TODO: add the logical clock to result
+		return oldNodes;
+	}
+	
 	/**
 	 * Send a request for the url with method specification
 	 * 
@@ -134,6 +172,10 @@ public class Node {
 		return result;
 	}
 
+	/**
+	 * Get the extend logical clock string LC+nodeID
+	 * @return
+	 */
 	private String getExtentLogicalClock() {
 		return incrementLogicalClock() + LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR
 				+ this.nodeId;
@@ -147,40 +189,16 @@ public class Node {
 		return this.logicalClock;
 	}
 
+	/**
+	 * Get the url to send xml-rpc request 
+	 * @param conectedNodeIp
+	 * @return
+	 */
 	private String getNodeUrl(String conectedNodeIp) {
 		return "http://" + conectedNodeIp + PORT_NUMBER;
 	}
 
-	/***
-	 * Handle the join request from another node
-	 * 
-	 * @param newNodeIp
-	 * @param newNodeId
-	 * @param logicalClock
-	 * 
-	 */
-	public String handleNewJoinRequest(String newNodeIp, String newNodeId,
-			String senderLogicalClock) {
-		updateLogicalClockOnReceive(senderLogicalClock);
-		System.out.println("receving a new join request ip:" + newNodeIp
-				+ "; id =" + newNodeId);
-
-		Map<String, String> oldNodesMap = new HashMap<String, String>(
-				this.networkNodesIps);
-		// add its own ip and id to the map
-		oldNodesMap.put(this.getIp(), this.nodeId);
-		String oldNodes = oldNodesMap.toString();
-		// forward the new ip for the all other nodes
-		for (String nodeIp : networkNodesIps.keySet()) {
-			forwardJoinRequest(nodeIp, newNodeIp, newNodeId);
-		}
-		// add the new ip
-		if (!this.networkNodesIps.keySet().contains(newNodeIp))
-			this.networkNodesIps.put(newNodeIp, newNodeId);
-		// TODO: add the logical clock to result
-		return oldNodes;
-
-	}
+	
 
 	/**
 	 * This method update the logical clock to the max(currentLC,senderLC)+1
@@ -188,29 +206,30 @@ public class Node {
 	 * @param senderLogicalClock
 	 */
 	private void updateLogicalClockOnReceive(String senderLogicalClock) {
-		System.out.println("Sender logical clock:" + senderLogicalClock);
+		
+		//split the sender extent Lamport logical clock 
 		String[] logicalClockAndNodeId = senderLogicalClock
-				.split(LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);// split the sender
-															// logical clock to
-															// take just the LC
+				.split(LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);
 		int senderLC = Integer.parseInt(logicalClockAndNodeId[0]);
+		//use the maximum 
 		this.logicalClock = Math.max(senderLC, this.logicalClock);
 		incrementLogicalClock();
-		System.out.println("Current logical clock:" + logicalClock);
+		System.out.println("Sender LC/ current LC :" + senderLogicalClock +"/"+this.logicalClock);
 	}
 
 	/**
 	 * Forward the new join request for all other nodes
 	 * 
-	 * @param recieverNodeIp
+	 * @param receiverNodeIp
 	 * @param newNodeIp
 	 * @param newNodeId
 	 */
-	private void forwardJoinRequest(final String recieverNodeIp,
+	private void forwardJoinRequest(final String receiverNodeIp,
 			final String newNodeIp, final String newNodeId) {
 		Thread thread = new Thread(new Runnable() {
 			public void run() {
-				String url = getNodeUrl(recieverNodeIp);
+				//send a the new node information for receiver node 
+				String url = getNodeUrl(receiverNodeIp);		
 				String methodName = NODE_HANDLE_FORWARD_NEW_JOIN_REQUEST_METHOD_NAME;
 				Vector<String> params = new Vector<String>();
 				params.addElement(newNodeIp);
@@ -232,8 +251,9 @@ public class Node {
 	public boolean handleForwardNewJoinRequest(String newNodeIp,
 			String newNodeId, String senderLogicalClock) {
 		updateLogicalClockOnReceive(senderLogicalClock);
-		System.out.println("receving a forward join request ip:" + newNodeIp
+		System.out.println("Receving a forward join request for the new ip:" + newNodeIp
 				+ "; id =" + newNodeId);
+		//add the new node information 
 		if (!this.networkNodesIps.keySet().contains(newNodeIp))
 			this.networkNodesIps.put(newNodeIp, newNodeId);
 		return true;
@@ -298,7 +318,7 @@ public class Node {
 	public boolean handleNewSignOffRequest(String signedOffNodeIp,
 			String senderLogicalClock) {
 		updateLogicalClockOnReceive(senderLogicalClock);
-		System.out.println("recieve sign off request from " + signedOffNodeIp);
+		System.out.println("Recieve sign off request from " + signedOffNodeIp);
 		this.networkNodesIps.remove(signedOffNodeIp);
 
 		// start election if the signed off node is the super node
@@ -331,6 +351,7 @@ public class Node {
 		this.isSuperNode = true;
 
 		List<Thread> threads = new ArrayList<Thread>();
+		//send election message for all others node with higher id 
 		for (final String nodeIp : networkNodesIps.keySet()) {
 			if (this.nodeId.compareTo(networkNodesIps.get(nodeIp)) < 0) {
 				Thread thread = new Thread(new Runnable() {
@@ -381,7 +402,7 @@ public class Node {
 		Vector<String> params = new Vector<String>();
 		params.addElement(this.getIp());
 		Object result = sendRequest(url, methodName, params);
-
+      //when it receive ok that's mean there is another node taking care of the election 
 		if (ELECTION_OK_MESSAGE.equals(result)) {
 			this.isSuperNode = false;
 		}
@@ -398,9 +419,9 @@ public class Node {
 			String senderLogicalClock) {
 
 		updateLogicalClockOnReceive(senderLogicalClock);
-		System.out.println("receving a new election message from  ip:"
+		System.out.println("Receving a new election message from  ip:"
 				+ senderNodeIp);
-
+        //start the election 
 		Thread thread = new Thread(new Runnable() {
 			public void run() {
 				startElection();
@@ -413,7 +434,7 @@ public class Node {
 	}
 
 	/**
-	 * Send coordination message for node
+	 * Send coordination message for some node
 	 * 
 	 * @param recieverNodeIp
 	 */
@@ -443,7 +464,7 @@ public class Node {
 	public boolean handleNewCoordinationMessage(String coordinatorIp,
 			String senderLogicalClock) {
 		updateLogicalClockOnReceive(senderLogicalClock);
-		System.out.println("Receving a new coordination from  ip:"
+		System.out.println("**** Receving a new coordination from  ip:"
 				+ coordinatorIp);
 		// set the super node ip
 		this.superNodeIp = coordinatorIp;
@@ -545,21 +566,13 @@ public class Node {
 					params.add(resourceId);
 					Object result = XMLRpcClientUtil.sendXMLRpcRequest(url,
 							methodName, params);
-					// save that allowance from receiver node
-					if (ACCESS_OK_MESSAGE.equals(result) || result == null) {// result
-																				// =
-																				// null
-																				// in
-																				// case
-																				// the
-																				// node
-																				// was
-																				// crashed
+					// save that allowance from receiver node   when the result = null that's mean the node was crashed.
+					if (ACCESS_OK_MESSAGE.equals(result) || result == null) {
 						handleAllowAccessResponse(richard, recieverNodeIp,
 								resourceId);
 					}
 
-					// we remove the node that crashed to avoid sending a future
+					// we remove the node that crashed to avoid sending a future 
 					// access request for it
 					if (result == null) {
 						Node.this.networkNodesIps.remove(recieverNodeIp);
@@ -585,8 +598,7 @@ public class Node {
 			String senderNodeIp, String senderLC, String resourceId) {
 
 		updateLogicalClockOnReceive(senderLC);
-		System.out.println("Receving a new acess request from  ip:"
-				+ senderNodeIp);
+		System.out.println("Receving a new acess request from  ip:"+ senderNodeIp);
 		switch (MutualExclusionAlgorithm.valueOf(mutualExclusionAlgorithm)) {
 		case Ricart:
 			return handleRicartAccessRequest(senderNodeIp, senderLC, resourceId);		
@@ -663,7 +675,7 @@ public class Node {
 	 */
 	public boolean handleAllowAccessResponse(String mutualExclusionAlgorithm,
 			String senderIp, String resourceId) {
-		System.out.println("Receving a new allow acess request from  ip:"
+		System.out.println("**** Receving a new allow acess request from  ip:"
 				+ senderIp);
 		switch (MutualExclusionAlgorithm.valueOf(mutualExclusionAlgorithm)) {
 		case Ricart:
@@ -727,9 +739,9 @@ public class Node {
 	private void accessResource(String mutualExclusionAlgorithm,
 			String resourceId) {
 		this.curentllyAccessingTheResource = true;
-		System.out.println("Start Access resource " + resourceId);
+		System.out.println("Started Access on resource " + resourceId);
 		readWriteOnResource(resourceId);
-		System.out.println("Finish Access resource " + resourceId);
+		System.out.println("Finished  Access on resource " + resourceId);
 		sendReleaseMessage(mutualExclusionAlgorithm, resourceId);
 
 	}
@@ -750,11 +762,8 @@ public class Node {
 			return;
 		String randomEnglishStringToAppend = getRandomString();
 		this.writesOnMasterNodeSharedString.add(randomEnglishStringToAppend);
-		superNodeSharedString += randomEnglishStringToAppend;// append the
-																// random string
-																// to update it
-																// on the master
-																// node
+		//append the random string to the shared string 
+		superNodeSharedString += randomEnglishStringToAppend;
 		// write the updated string on the master node
 		updateResourceOnSuperNode(resourceId, superNodeSharedString);
 	}
@@ -785,12 +794,12 @@ public class Node {
 		// start the election process
 		if (result == null) {
 			System.out
-					.print("***** It seems the super node hase crashed we will start election!");
+					.println("***** It seems the super node hase crashed I will start election!");
 			startElection();
 			return null;
 		}
 
-		System.out.print("Read resource from super node  result:" + result);
+		System.out.println("Read resource from super node  result:" + result);
 
 		return (String) result;
 	}
@@ -808,7 +817,7 @@ public class Node {
 
 		updateLogicalClockOnReceive(senderLogicalClock);
 
-		System.out.print("Receive a read operation on " + resourceId
+		System.out.println("Receive a read operation on " + resourceId
 				+ "from node:" + senderIp);
 
 		return this.sharedString;
@@ -821,7 +830,7 @@ public class Node {
 	 */
 	private boolean updateResourceOnSuperNode(String resourceId, String newValue) {
 		String url = getNodeUrl(this.superNodeIp);
-		String methodName = "node.updateResource";
+		String methodName = NODE_UPDATE_RESOURCE_METHOD_NAME;
 		Vector<String> params = new Vector<String>();
 		params.addElement(this.getIp());
 		params.addElement(resourceId);
@@ -831,12 +840,12 @@ public class Node {
 		// start the election process
 		if (result == null) {
 			System.out
-					.print("***** It seems the super node hase crashed we will start election!");
+					.println("***** It seems the super node hase crashed we will start election!");
 			startElection();
 			return false;
 		}
 
-		System.out.print("Read resource from super node  result:" + result);
+		System.out.println("Read resource from super node  result:" + result);
 
 		return (boolean) result;
 	}
@@ -854,7 +863,7 @@ public class Node {
 
 		updateLogicalClockOnReceive(senderLogicalClock);
 
-		System.out.print("Receive a update operation on " + resourceId
+		System.out.println("Receive a update operation on " + resourceId
 				+ "from node:" + senderIp);
 
 		this.sharedString = newResourceValue;
@@ -1023,7 +1032,7 @@ public class Node {
 		Thread thread = new Thread(new Runnable() {
 			public void run() {
 				String url = getNodeUrl(recieverNodeIp);
-				String methodName = "node.start";
+				String methodName = NODE_START_METHOD_NAME;
 				Vector<String> params = new Vector<String>();
 				params.add(mutualExclusionAlgorithm.name());
 				params.add(resourceId);

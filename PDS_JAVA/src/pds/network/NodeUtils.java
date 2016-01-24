@@ -6,37 +6,19 @@ import java.util.Map;
 public class NodeUtils {
 
 	/**
-	 * Compare two extent logical clocks
+	 * Compare two extent Lamport logical clocks
 	 * 
 	 * @param ELC1
 	 * @param ELC2
 	 * @return
 	 */
 	public static int compareExtentLogicalClock(String ELC1, String ELC2) {
-
-		String[] LC1 = ELC1.split(Node.LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);// split
-																		// the
-																		// sender
-																		// logical
-																		// clock
-																		// to
-																		// take
-																		// just
-																		// the
-																		// LC
+//split the  logical clock string that contains the LC and node id 
+		String[] LC1 = ELC1.split(Node.LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);
 		int logicalClock1 = Integer.parseInt(LC1[0]);
 		int computerId1 = Integer.parseInt(LC1[1]);
 
-		String[] LC2 = ELC2.split(Node.LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);// split
-																		// the
-																		// sender
-																		// logical
-																		// clock
-																		// to
-																		// take
-																		// just
-																		// the
-																		// LC
+		String[] LC2 = ELC2.split(Node.LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);
 		int logicalClock2 = Integer.parseInt(LC2[0]);
 		int computerId2 = Integer.parseInt(LC2[1]);
 
@@ -44,10 +26,8 @@ public class NodeUtils {
 			return -1;
 		else if (logicalClock1 > logicalClock2)
 			return 1;
-		else if (logicalClock1 == logicalClock2 && computerId1 < computerId2)// extent
-																				// Lamport
-																				// logical
-																				// clock
+		// extent Lamport logical clock 
+		else if (logicalClock1 == logicalClock2 && computerId1 < computerId2)
 			return -1;
 
 		else if (logicalClock1 == logicalClock2 && computerId1 > computerId2)

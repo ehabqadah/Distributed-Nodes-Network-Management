@@ -1,6 +1,5 @@
 package pds.command.tool;
 
-import java.io.Console;
 import java.util.Scanner;
 
 import pds.network.MutualExclusionAlgorithm;
@@ -17,7 +16,7 @@ public class CommandTool {
 
 		Node node = new Node("1");
 
-		node.setupServerPart();
+		node.setupServerPart(2000);
 		System.out
 				.println(" Enter command join or signoff or  startElection or start (Central or Ricart) or exit");
 

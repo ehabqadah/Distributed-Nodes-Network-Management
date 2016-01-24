@@ -26,7 +26,7 @@ public class Test {
 		
 		Node node = new Node("1");
 		
-		node.setupServerPart();
+		
 		
 	}
 
