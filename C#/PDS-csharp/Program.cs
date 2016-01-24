@@ -1,9 +1,8 @@
 
 using System;
 using System.ServiceModel;
-using PDS;
 
-namespace TinyBlogEngine.Test
+namespace PDS
 {
     class Program
     {
@@ -14,7 +13,7 @@ namespace TinyBlogEngine.Test
         static void Main(string[] args)
         {
             Node node = new Node("3");
-            ServiceHost webServer = node.setupServerPart();
+            ServiceHost webServer = node.setupServerPart(2000);
             Console.WriteLine("  Enter command join or signoff or  startElection or start (Central or Ricart) or exit");
 
             while (true)

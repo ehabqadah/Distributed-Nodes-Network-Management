@@ -20,12 +20,13 @@ namespace PDS
         private static string ACCESS_OK_MESSAGE = "OK you can access it";
         private static string NOT_OK_MESSAGE = "NOT OK";
         public static char LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR = ',';
-
         private static int RANDOM_WAIT_THREASHOLD_MS = 5000;
         private static int READ_WRITE_PERIOD_MS = 20 * 1000;
+        private static int connectionPortNumber;
         public static Hashtable networkNodesIPs = new Hashtable();
 
         public static Hashtable networkNodesIpsAndAccessRequestResponse = new Hashtable();
+
         public static String ip;
 
         public static String nodeId;
@@ -39,19 +40,23 @@ namespace PDS
         public static int logicalClock;
 
         public static bool wantToAccessResource;
+
         public static bool curentllyAccessingTheResource;
 
         private static string accessRequestLogicalClock = "";
 
         public static List<string> accessRequestQueue = new List<string>();
+
         private static readonly object syncLCLock = new object();
+
         private static readonly object accessRequestQueueeslock = new object();
+
         private static readonly object accessResponseslock = new object();
 
         public static List<string> writesOnMasterNodeSharedString = new List<string>();
 
         public static string sharedString = "";
-
+      
 
         public Node()
         {
@@ -76,11 +81,11 @@ namespace PDS
                 INodeOperation nodeAPI = createNodeAPI(connectedNodeIp);
                 String result = nodeAPI.handleNewJoinRequest(GetLocalIPAddress(), nodeId, getExtentLogicalClock());
                 networkNodesIPs = NodeUtils.parseIpList(result);
-                Console.WriteLine("join result :" + result);
+                Console.WriteLine("Join result :" + result);
             }
             catch (Exception ex)
             {
-                Console.Write("Exception :" + ex.Message);
+                Console.WriteLine("Exception :" + ex.Message);
             }
             return true;
         }
@@ -105,7 +110,6 @@ namespace PDS
         /// <returns></returns>
         public string getExtentLogicalClock()
         {
-
             return incrementLogicalClock() + "," + nodeId;
         }
 
@@ -118,11 +122,10 @@ namespace PDS
 
         public INodeOperation createNodeAPI(String connectedNodeIp)
         {
-            Uri nodeAddress = new UriBuilder(Uri.UriSchemeHttp, connectedNodeIp, 2000, "/RPC2").Uri;
 
+            Uri nodeAddress = new UriBuilder(Uri.UriSchemeHttp, connectedNodeIp, connectionPortNumber, "/RPC2").Uri;
             ChannelFactory<INodeOperation> nodeAPIFactory = new ChannelFactory<INodeOperation>(new WebHttpBinding(WebHttpSecurityMode.None), new EndpointAddress(nodeAddress));
             nodeAPIFactory.Endpoint.Behaviors.Add(new XmlRpcEndpointBehavior());
-
             return nodeAPIFactory.CreateChannel();
 
         }
@@ -144,7 +147,7 @@ namespace PDS
             foreach (string nodeIp in networkNodesIPs.Keys)
             {
 
-                //TODO send the election messages 
+                // send the election messages for nodes with higher id 
                 if (nodeId.CompareTo(networkNodesIPs[nodeIp]) < 0)
                 {
                     Thread thread = new Thread(
@@ -199,7 +202,7 @@ namespace PDS
             }
             catch (Exception ex)
             {
-                Console.Write("Exception :" + ex.Message);
+                Console.WriteLine("Exception :" + ex.Message);
             }
 
             if (OK_MESSAGE.Equals(result))
@@ -239,7 +242,7 @@ namespace PDS
         public string handleNewJoinRequest(string newNodeIp, String newNodeId, String senderLogicalClock)
         {
             updateLogicalClockOnReceive(senderLogicalClock);
-            Console.WriteLine("Recieve a  join request from " + newNodeIp + " node id=" + newNodeId);
+            Console.WriteLine("Recieve a  join request from :" + newNodeIp + " node id=" + newNodeId);
             String result = "";
             result = "{";
             foreach (String nodeIp in networkNodesIPs.Keys)
@@ -271,12 +274,12 @@ namespace PDS
         /// <param name="senderLogicalClock"></param>
         private void updateLogicalClockOnReceive(String senderLogicalClock)
         {
-            Console.WriteLine("Sender logical clock:" + senderLogicalClock);
-            String[] logicalClockAndNodeId = senderLogicalClock.Split(LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);// split the sender logical clock to take just the LC 		
+            // split the sender logical clock to take just the LC 		
+            String[] logicalClockAndNodeId = senderLogicalClock.Split(LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);
             int senderLC = int.Parse(logicalClockAndNodeId[0]);
             logicalClock = Math.Max(senderLC, logicalClock);
             incrementLogicalClock();
-            Console.WriteLine("Current logical clock:" + logicalClock);
+            Console.WriteLine("sender/current node logical clocks" + senderLogicalClock+"/"+logicalClock);
         }
         /// <summary>
         /// Forward a join request the all other nodes 
@@ -299,7 +302,7 @@ namespace PDS
                         }
                         catch (Exception ex)
                         {
-                            Console.Write("Exception :" + ex.Message);
+                            Console.WriteLine("Exception :" + ex.Message);
                         }
                     })
                 );
@@ -311,9 +314,10 @@ namespace PDS
         /// Set up the receiver part 
         /// </summary>
         /// <returns></returns>
-        public ServiceHost setupServerPart()
+        public ServiceHost setupServerPart(int portNumber)
         {
-            Uri baseAddress = new UriBuilder(Uri.UriSchemeHttp, "localhost", 2000, "/RPC2/").Uri;
+            connectionPortNumber = portNumber;
+            Uri baseAddress = new UriBuilder(Uri.UriSchemeHttp, "localhost", portNumber, "/RPC2/").Uri;
             ServiceHost serviceHost = new ServiceHost(typeof(Node));
             var epXmlRpc = serviceHost.AddServiceEndpoint(typeof(INodeOperation), new WebHttpBinding(WebHttpSecurityMode.None), new Uri(baseAddress, "./"));
             epXmlRpc.Behaviors.Add(new XmlRpcEndpointBehavior());
@@ -334,9 +338,7 @@ namespace PDS
             Console.WriteLine("Recieve a forward join request for " + newNodeIp + " newNodeId" + newNodeId);
             if (!networkNodesIPs.Contains(newNodeIp))
                 networkNodesIPs.Add(newNodeIp, newNodeId);
-
             return true;
-
         }
 
 
@@ -374,7 +376,7 @@ namespace PDS
                      }
                      catch (Exception ex)
                      {
-                         Console.Write("Exception :" + ex.Message);
+                         Console.WriteLine("Exception :" + ex.Message);
                      }
                  })
              );
@@ -392,7 +394,7 @@ namespace PDS
         public bool handleNewSignOffRequest(string ip, string senderLogicalClock)
         {
             updateLogicalClockOnReceive(senderLogicalClock);
-            Console.WriteLine("Recieve a sign off request from " + ip);
+            Console.WriteLine("Receive a sign off request from " + ip);
             networkNodesIPs.Remove(ip);
             return true;
         }
@@ -405,7 +407,7 @@ namespace PDS
         public string handleNewElectionMessage(string senderNodeIp, string senderLogicalClock)
         {
             updateLogicalClockOnReceive(senderLogicalClock);
-            Console.WriteLine("Recieve a  new election message from " + senderNodeIp);
+            Console.WriteLine("Receive a  new election message from " + senderNodeIp);
             Thread thread = new Thread(
              new ThreadStart(
                  () =>
@@ -437,7 +439,7 @@ namespace PDS
                         }
                         catch (Exception ex)
                         {
-                            Console.Write("Exception :" + ex.Message);
+                            Console.WriteLine("Exception :" + ex.Message);
                         }
 
                     })
@@ -454,7 +456,7 @@ namespace PDS
         public bool handleNewCoordinationMessage(string coordinatorIp, String senderLogicalClock)
         {
             updateLogicalClockOnReceive(senderLogicalClock);
-            Console.Write("Receving a new coordination from  ip:"
+            Console.WriteLine("Receiving a new coordination from  ip:"
                     + coordinatorIp);
 
             // set the super node ip
@@ -489,11 +491,12 @@ namespace PDS
 
 
 
-        /**
-	 * Send start message for certain node
-	 * 
-	 * @param recieverNodeIp
-	 */
+        /// <summary>
+        /// Send start message for certain node
+        /// </summary>
+        /// <param name="recieverNodeIp"></param>
+        /// <param name="mutualExclusionAlgorithm"></param>
+        /// <param name="resourceId"></param>
         private void sendStartMessage(string recieverNodeIp,
                  MutualExclusionAlgorithm mutualExclusionAlgorithm,
                String resourceId)
@@ -511,7 +514,7 @@ namespace PDS
                        }
                        catch (Exception ex)
                        {
-                           Console.Write("Exception :" + ex.Message);
+                           Console.WriteLine("Exception :" + ex.Message);
                        }
                    })
                );
@@ -638,7 +641,7 @@ namespace PDS
                            // access request for it
 
                            networkNodesIPs.Remove(recieverNodeIp);
-                           Console.Write("Exception :" + ex.Message);
+                           Console.WriteLine("Exception :" + ex.Message);
                        }
 
                    })
@@ -685,7 +688,7 @@ namespace PDS
                 Console.WriteLine("***** It seems the super node hase crashed we will start election!");
                 startElection();
                 wantToAccessResource = false;
-                Console.Write("Exception :" + ex.Message);
+                Console.WriteLine("Exception :" + ex.Message);
             }
 
         }
@@ -702,7 +705,7 @@ namespace PDS
         /// <returns></returns>
         public bool handleAllowAccessResponse(string mutualExclusionAlgorithm, string senderIp, string resourceId)
         {
-            Console.WriteLine("Receving a new allow acess request from  ip:" + senderIp);
+            Console.WriteLine("Receiving a new allow acess request from  ip:" + senderIp);
             switch ((MutualExclusionAlgorithm)Enum.Parse(typeof(MutualExclusionAlgorithm), mutualExclusionAlgorithm))
             {
                 case MutualExclusionAlgorithm.Ricart:
@@ -788,7 +791,6 @@ namespace PDS
         /// <param name="resourceId"></param>
         private void readWriteOnResource(string resourceId)
         {
-
             // read resource from super node
             string superNodeSharedString = readResourceFromSuperNode(resourceId);
             // in the cases of master node has been crashed
@@ -796,12 +798,8 @@ namespace PDS
                 return;
             string randomEnglishStringToAppend = getRandomString();
             writesOnMasterNodeSharedString.Add(randomEnglishStringToAppend);
-            superNodeSharedString += randomEnglishStringToAppend;// append the
-                                                                 // random string
-                                                                 // to update it
-                                                                 // on the master
-                                                                 // node
-                                                                 // write the updated string on the master node
+            //append random string 
+            superNodeSharedString += randomEnglishStringToAppend;
             updateResourceOnSuperNode(resourceId, superNodeSharedString);
         }
 
@@ -823,7 +821,7 @@ namespace PDS
             }
             catch (Exception ex)
             {
-                Console.Write("Exception :" + ex.Message);
+                Console.WriteLine("Exception :" + ex.Message);
                 // if the super node crashed or doesn't response for the request we
                 // start the election process
                 Console.WriteLine("***** It seems the super node hase crashed we will start election!");
@@ -871,7 +869,7 @@ namespace PDS
             }
             catch (Exception ex)
             {
-                Console.Write("Exception :" + ex.Message);
+                Console.WriteLine("Exception :" + ex.Message);
                 // if the super node crashed or doesn't response for the request we
                 // start the election process
 
@@ -956,7 +954,7 @@ namespace PDS
                      }
                      catch (Exception ex)
                      {
-                         Console.Write("Exception :" + ex.Message);
+                         Console.WriteLine("Exception :" + ex.Message);
                      }
 
                  })
@@ -991,7 +989,7 @@ namespace PDS
             }
             catch (Exception ex)
             {
-                Console.Write("Exception :" + ex.Message);
+                Console.WriteLine("Exception :" + ex.Message);
             }
 
         }
@@ -1008,7 +1006,7 @@ namespace PDS
         public bool handleReleaseResource(string mutualExclusionAlgorithm,
                 string senderIp, string resourceId, string senderLogicalClock)
         {
-            Console.WriteLine("Receving realease message from  ip:"
+            Console.WriteLine("Receiving realease message from  ip:"
                      + senderIp);
 
             switch ((MutualExclusionAlgorithm)Enum.Parse(typeof(MutualExclusionAlgorithm), mutualExclusionAlgorithm))
@@ -1053,7 +1051,7 @@ namespace PDS
                         }
                         catch (Exception ex)
                         {
-                            Console.Write("Exception :" + ex.Message);
+                            Console.WriteLine("Exception :" + ex.Message);
                         }
 
                     })
@@ -1076,7 +1074,7 @@ namespace PDS
                 String senderNodeIp, String senderLC, String resourceId)
         {
             updateLogicalClockOnReceive(senderLC);
-            Console.WriteLine("Receving a new acess request from  ip:"
+            Console.WriteLine("Receiving a new acess request from  ip:"
                      + senderNodeIp);
             switch ((MutualExclusionAlgorithm)Enum.Parse(typeof(MutualExclusionAlgorithm), mutualExclusionAlgorithm))
             {
@@ -1180,7 +1178,7 @@ namespace PDS
 
             String superNodeSharedString = readResourceFromSuperNode(resourceId);
 
-            Console.WriteLine("The shared string on the master node= "
+            Console.WriteLine("***** The shared string on the master node= "
                       + superNodeSharedString);
 
             int failedWritesCount = 0;

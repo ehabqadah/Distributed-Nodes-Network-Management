@@ -1,10 +1,6 @@
 ﻿
 using System;
 using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace PDS
 {
@@ -18,40 +14,22 @@ namespace PDS
         /// <returns></returns>
         public static  int compareExtentLogicalClock(String ELC1, String ELC2)
         {
-            // split the
-            // sender
-            // logical
-            // clock
-            // to
-            // take
-            // just
-            // the
-            // LC
+           
+            //split the extend Lamport logical clock string 
             String[] LC1 = ELC1.Split(Node.LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);
             int logicalClock1 = int.Parse(LC1[0]);
             int computerId1 = int.Parse(LC1[1]);
 
-            String[] LC2 = ELC2.Split(Node.LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);// split
-                                                                          // the
-                                                                          // sender
-                                                                          // logical
-                                                                          // clock
-                                                                          // to
-                                                                          // take
-                                                                          // just
-                                                                          // the
-                                                                          // LC
+            String[] LC2 = ELC2.Split(Node.LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR);
             int logicalClock2 = int.Parse(LC2[0]);
             int computerId2 = int.Parse(LC2[1]);
 
+            //extent Lamport logical clock comparesion 
             if (logicalClock1 < logicalClock2)
                 return -1;
             else if (logicalClock1 > logicalClock2)
                 return 1;
-            else if (logicalClock1 == logicalClock2 && computerId1 < computerId2)// extent
-                                                                                 // Lamport
-                                                                                 // logical
-                                                                                 // clock
+            else if (logicalClock1 == logicalClock2 && computerId1 < computerId2)
                 return -1;
 
             else if (logicalClock1 == logicalClock2 && computerId1 > computerId2)
