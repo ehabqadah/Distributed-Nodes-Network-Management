@@ -1,13 +1,21 @@
 package pds.xmlrpc.server;
 
 import org.apache.xmlrpc.WebServer;
-
-import pds.server.ServerRPC;
-
+/**
+ * This class responsible for receiving XML-RPC calls
+ * 
+ *
+ */
 public class XMLRpcServerUtils {
 
 	
-	
+	/**
+	 * Setup the XML-RPC receiving part 
+	 * @param portNumber
+	 * @param handlerName
+	 * @param serverHandler
+	 * @return
+	 */
 	public static WebServer setupXmlRPCServer(int portNumber,
 			String handlerName, Object serverHandler){
 		 WebServer server=null;
@@ -17,9 +25,8 @@ public class XMLRpcServerUtils {
 	         server.addHandler(handlerName, serverHandler);
 	         server.start();    
 	         System.out.println(handlerName+" started successfully.");
-	         System.out.println("Accepting requests. (Halt program to stop.)");	         
 	      } catch (Exception exception){
-	         System.err.println("JavaServer: " + exception);
+	         System.err.println("******* JavaServer error: " + exception);
 	      }
 		return server;
 	}
