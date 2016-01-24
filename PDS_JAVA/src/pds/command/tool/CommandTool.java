@@ -14,16 +14,21 @@ public class CommandTool {
 
 	public static void main(String[] args) {
 
-		Node node = new Node("1");
-
-		node.setupServerPart(2000);
-		System.out
-				.println(" Enter command join or signoff or  startElection or start (Central or Ricart) or exit");
+		Scanner in = new Scanner(System.in);
+		
+			System.out.println(" Enter the nodeId:");
+			Node node = new Node(in.nextLine());
+			System.out.println(" Enter the port number:");
+			in = new Scanner(System.in);
+		   node.setupServerPart(Integer.parseInt(in.nextLine()));
+		   
+		   
+		System.out.println(" Enter command join or signoff or  startElection or start (Central or Ricart) or exit");
 
 		while (true) {
 			String command = null;
 			try {
-				Scanner in = new Scanner(System.in);
+				
 				// Reads a single line from the console
 				// and stores into name variable
 				command = in.nextLine();

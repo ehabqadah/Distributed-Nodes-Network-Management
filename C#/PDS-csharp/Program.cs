@@ -12,8 +12,12 @@ namespace PDS
         /// <param name="args"></param>
         static void Main(string[] args)
         {
-            Node node = new Node("3");
-            ServiceHost webServer = node.setupServerPart(2000);
+            Console.WriteLine("Enter node id");
+            Node node = new Node(Console.ReadLine());
+            Console.WriteLine("  Enter port number:");
+            ServiceHost webServer = node.setupServerPart(int.Parse(Console.ReadLine()));
+
+
             Console.WriteLine("  Enter command join or signoff or  startElection or start (Central or Ricart) or exit");
 
             while (true)
