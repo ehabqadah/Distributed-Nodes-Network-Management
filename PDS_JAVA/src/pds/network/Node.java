@@ -37,7 +37,7 @@ public class Node {
 	private static final String NODE_HANDLE_ALLOW_ACCESS_RESPONSE_METHOD_NAME = "node.handleAllowAccessResponse";
 	private static final String NOT_OK_MESSAGE = "NOT OK";	
 	private static final String ELECTION_OK_MESSAGE = "ok i will take care of election";
-	private static final String PORT_NUMBER = ":2000/RPC2";
+	private static final String RPC_URL= "/RPC2";
 	private static final String ACCESS_OK_MESSAGE = "OK you can access it";
 	static final String LOGICAL_CLOCK_AND_NODE_ID_SEPAROTR = ",";
 	private static final int RANDOM_WAIT_THREASHOLD_MS = 5000;
@@ -79,6 +79,8 @@ public class Node {
 	public String sharedString = "";
 
 	public List<String> writesOnMasterNodeSharedString = new ArrayList<String>();
+	
+	private int portNumber;
 
 	/**
 	 * Constructors
@@ -101,7 +103,7 @@ public class Node {
 	 * @return
 	 */
 	public boolean setupServerPart(int portNumber) {
-
+         this.portNumber=portNumber;
 		 WebServer server=XMLRpcServerUtils.setupXmlRPCServer(portNumber, NODE_HANDLER_NAME, this);
 
 		return server!=null;
@@ -195,7 +197,7 @@ public class Node {
 	 * @return
 	 */
 	private String getNodeUrl(String conectedNodeIp) {
-		return "http://" + conectedNodeIp + PORT_NUMBER;
+		return "http://" + conectedNodeIp + ":"+portNumber+RPC_URL;
 	}
 
 	
